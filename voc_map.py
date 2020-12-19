@@ -9,14 +9,21 @@ import math
 
 import numpy as np
 
-from reader import pascal_voc_reader, weixitong_reader, yolo_reader, coco_pred_json_reader
+from reader import (
+    pascal_voc_reader,
+    weixitong_reader,
+    yolo_reader,
+    coco_pred_json_reader,
+    pred_txt_reader
+)
 
 MINOVERLAP = 0.5 # default value (defined in the PASCAL VOC2012 challenge)
-CLS_NAMES = ['person', 'car']
+CLS_NAMES = ['person']
 
-GT_DATA = yolo_reader('../VOC_person_car/labels/val', CLS_NAMES)
-PRED_DATA = weixitong_reader('./result.log')
-# PRED_DATA = coco_pred_json_reader('/media/HD1/luojiapeng/car_person_det/yolov3/results.json', CLS_NAMES)
+GT_DATA = yolo_reader('../coco2017_person/labels/val2017', CLS_NAMES)
+# PRED_DATA = weixitong_reader('./result.log')
+# PRED_DATA = coco_pred_json_reader('../yolov3/results.json', CLS_NAMES)
+PRED_DATA = pred_txt_reader('../yolov3/v3iny-half-person.txt')
 
 """
  Check pred and gt keys
@@ -94,7 +101,7 @@ def preprocess_pred_data(pred_data):
                 'label': d['label'],
                 'score': d['score']
             })
-    sorted(_pred_data, key=lambda x: x['score'])
+    _pred_data = sorted(_pred_data, key=lambda x: x['score'], reverse=True)
     return _pred_data
 
 """
@@ -108,10 +115,7 @@ def calculate_map(GT_DATA, PRED_DATA):
     PRED_DATA = preprocess_pred_data(PRED_DATA)
     sum_AP = 0.0
     ap_dictionary = {}
-    count_true_positives = {}
     for _, class_name in enumerate(CLS_NAMES):
-        count_true_positives[class_name] = 0
-
         """
          Assign detection-results to ground-truth objects
         """
@@ -124,7 +128,6 @@ def calculate_map(GT_DATA, PRED_DATA):
             # open ground-truth with that file_id
             file_id = pred['file_id']
             gt = GT_DATA[file_id]
-            gt_used = np.zeros([len(gt)])
             ovmax = -1
             gt_match = -1
             # load detected object bounding-box
@@ -149,15 +152,14 @@ def calculate_map(GT_DATA, PRED_DATA):
             
             # set minimum overlap
             if ovmax >= MINOVERLAP:
-                if not gt_used[gt_idx]:
+                if 'used' not in gt[gt_match]:
                     # true positive
                     tp[idx] = 1
-                    gt_used[gt_idx] = True
-                    count_true_positives[class_name] += 1
+                    gt[gt_match]['used'] = True
                 else:
                     # false positive (multiple detection)
-                    # fp[idx] = 1
-                    ig[idx] = 1
+                    fp[idx] = 1
+                    # ig[idx] = 1
                     pass
             else:
                 # false positive
@@ -183,17 +185,17 @@ def calculate_map(GT_DATA, PRED_DATA):
         #print(rec)
         prec = tp[:]
         for idx, val in enumerate(tp):
-            prec[idx] = (tp[idx] + ig[idx]) / (fp[idx] + tp[idx])
+            prec[idx] = (tp[idx] + ig[idx]) / (fp[idx] + ig[idx] + tp[idx])
         #print(prec)
 
         ap, mrec, mprec = voc_ap(rec[:], prec[:])
         sum_AP += ap
         text = "{0:.2f}%".format(ap*100) + " = " + class_name + " AP "
         _out_idx = np.arange(0, len(prec), len(prec)//10).tolist().append(-1)
-        rounded_prec = [ '%.2f' % elem for elem in prec[::len(prec)//10] ]
-        rounded_prec.append(prec[-1])
-        rounded_rec = [ '%.2f' % elem for elem in rec[::len(rec)//10] ]
-        rounded_rec.append(rec[-1])
+        rounded_prec = [ '%.2f' % elem for elem in mprec[::len(mprec)//10] ]
+        rounded_prec.append(mprec[-2])
+        rounded_rec = [ '%.2f' % elem for elem in mrec[::len(mrec)//10] ]
+        rounded_rec.append(mrec[-2])
         print(text + "\n Precision: " + str(rounded_prec) + "\n Recall :" + str(rounded_rec))
         ap_dictionary[class_name] = ap
 

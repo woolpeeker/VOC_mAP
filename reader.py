@@ -82,3 +82,14 @@ def coco_pred_json_reader(json_file, cnames):
         }
         out_data.setdefault(file_id, []).append(d)
     return out_data
+
+def pred_txt_reader(txt_file):
+    data = np.loadtxt(open(txt_file), dtype=str)
+    out_data = {}
+    for d in data:
+        out_data.setdefault(d[0], []).append({
+            'label': d[1],
+            'score': float(d[2]),
+            'box': [float(d[3]), float(d[4]), float(d[5]), float(d[6])],
+        })
+    return out_data
