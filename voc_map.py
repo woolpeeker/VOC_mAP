@@ -18,12 +18,17 @@ from reader import (
 )
 
 MINOVERLAP = 0.5 # default value (defined in the PASCAL VOC2012 challenge)
-CLS_NAMES = ['person']
 
-GT_DATA = yolo_reader('../coco2017_person/labels/val2017', CLS_NAMES)
-# PRED_DATA = weixitong_reader('./result.log')
+# coco_person
+# CLS_NAMES = ['person']
+# GT_DATA = yolo_reader('../coco2017_person/labels/val2017', CLS_NAMES)
 # PRED_DATA = coco_pred_json_reader('../yolov3/results.json', CLS_NAMES)
-PRED_DATA = pred_txt_reader('../yolov3/v3iny-half-person.txt')
+
+# VOC_person_car
+CLS_NAMES = ['person', 'car']
+GT_DATA = yolo_reader('../VOC_person_car/labels/val', CLS_NAMES)
+PRED_DATA = pred_txt_reader('../yolov3/v3tiny-half-v2-voc-person-car.txt')
+# PRED_DATA = weixitong_reader('./data/result.log')
 
 """
  Check pred and gt keys
@@ -126,6 +131,8 @@ def calculate_map(GT_DATA, PRED_DATA):
         for idx, pred in enumerate(PRED_DATA):            
             # assign detection-results to ground truth object if any
             # open ground-truth with that file_id
+            if pred['label'] != class_name:
+                continue
             file_id = pred['file_id']
             gt = GT_DATA[file_id]
             ovmax = -1
@@ -185,7 +192,7 @@ def calculate_map(GT_DATA, PRED_DATA):
         #print(rec)
         prec = tp[:]
         for idx, val in enumerate(tp):
-            prec[idx] = (tp[idx] + ig[idx]) / (fp[idx] + ig[idx] + tp[idx])
+            prec[idx] = (tp[idx] + ig[idx]) / (fp[idx] + ig[idx] + tp[idx] + 1e-8)
         #print(prec)
 
         ap, mrec, mprec = voc_ap(rec[:], prec[:])
